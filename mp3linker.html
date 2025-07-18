@@ -1,221 +1,186 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>MP3符号链接管理器 - 极简mklink模式</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>本地MP3管理工具-歌手筛选+mklink脚本</title>
     <style>
-        body { background: #f5f5f5; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; margin: 0; padding: 0; color: #333;}
-        .container { max-width: 900px; background: #fff; margin: 40px auto; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.10); padding: 32px;}
-        h1 { font-size: 2.2rem; color: #2196f3; margin-bottom: 24px; display: flex; align-items: center; gap: 8px;}
-        .group { margin-bottom: 24px;}
-        label { font-weight: 500; margin-right: 12px; color: #1976d2; display: inline-block; min-width: 120px;}
-        input[type="text"] { width: calc(100% - 150px); max-width: 500px; padding: 10px 16px; font-size: 1rem; border: 1px solid #ddd; border-radius: 8px;}
-        input[type="text"]:focus { border-color: #2196f3; outline: none;}
-        button, .btn { background: #2196f3; color: #fff; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 500; margin-right: 8px; margin-bottom: 8px;}
-        button:hover, .btn:hover { background: #1976d2;}
-        .btn-warn { background: #ff9800; }
-        .btn-warn:hover { background: #f57c00;}
-        .btn-green { background: #4caf50; }
-        .btn-green:hover { background: #388e3c;}
-        .flex { display: flex; flex-wrap: wrap; gap: 12px; align-items: center;}
-        .actions { margin: 16px 0;}
-        .note { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 12px 16px; margin: 16px 0; border-radius: 8px; font-size: 0.95rem; line-height: 1.6;}
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.05);}
-        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #ddd; font-size: 0.95rem;}
-        th { background: #e8f4fd; color: #1976d2; font-weight: 600; cursor: pointer;}
-        tr:hover { background: #f9fcff;}
-        .small { font-size: 0.9rem; color: #757575;}
-        .summary { color: #4caf50; margin-top: 12px; font-weight: 500;}
-        .count { color: #2196f3; font-weight: 600;}
-        textarea { width: 100%; min-height: 200px; font-family: 'Consolas', monospace; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; resize: vertical; background: #fafafa;}
-        #searchInput { max-width: 300px; margin-bottom: 16px;}
+        body { font-family: "微软雅黑", Arial, sans-serif; background: #fafaff; margin: 30px; }
+        h2 { color: #1a73e8; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f1f3f4; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .group { margin-bottom: 12px; }
+        select { padding: 3px 10px; font-size: 14px; }
+        button, label { font-size: 14px; }
+        .small { color: #888; font-size: 12px; }
+        textarea { width: 100%; height: 90px; margin: 6px 0 0 0; font-size: 14px; font-family: "Consolas", monospace; }
+        #mklinkOut { background: #f5f7fa; border: 1px solid #eee; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>?? MP3符号链接管理器 <span class="small">(仅输出mklink语句)</span></h1>
-        <div class="group">
-            <label>MP3源目录（浏览器展示）:</label>
-            <div class="flex">
-                <input type="text" id="sourcePath" placeholder="选择目录后自动填充" readonly />
-                <button onclick="openDirPicker()">?? 选择目录</button>
-            </div>
-        </div>
-        <div class="group">
-            <label>MP3源目录绝对路径:</label>
-            <input type="text" id="absSourcePath" placeholder="如 D:\Music" />
-        </div>
-        <div class="group">
-            <label>ETS2音乐目标目录:</label>
-            <input type="text" id="targetPath" placeholder="如 C:\Users\你的用户名\Documents\Euro Truck Simulator 2\music" />
-        </div>
-        <div class="actions flex">
-            <button class="btn" onclick="selectAll()">全选</button>
-            <button class="btn" onclick="selectNone()">全不选</button>
-            <button class="btn-warn" onclick="invertSelection()">反选</button>
-            <input type="text" id="searchInput" placeholder="搜索文件名或路径..." oninput="filterTable()" />
-        </div>
-        <div class="note">
-            <b>说明：</b><br>
-            1. <b>选择目录</b>仅供浏览器扫描，不代表你的本地绝对路径。<br>
-            2. <b>源目录绝对路径</b>需你手动填写，如“D:\Music”。<br>
-            3. 批处理框仅输出 mklink 语句，一行一个，无注释。<br>
-            4. 所有操作本地完成，无数据上传。
-        </div>
-        <div id="summary" class="summary"></div>
-        <table id="mp3Table">
-            <thead>
-                <tr>
-                    <th style="width: 40px;">选</th>
-                    <th onclick="sortTable(1)">文件名 ↑</th>
-                    <th onclick="sortTable(2)">相对路径 ↑</th>
-                    <th onclick="sortTable(3)" style="width: 100px;">大小(MB) ↑</th>
-                </tr>
-            </thead>
-            <tbody id="fileList">
-                <tr><td colspan="4" class="small" style="text-align: center;">未选择目录</td></tr>
-            </tbody>
-        </table>
-        <div style="margin: 20px 0 8px 0; font-weight: 600; color: #2196f3;">批处理语句</div>
-        <textarea id="batOutput" readonly></textarea>
-        <div class="actions flex">
-            <button class="btn-green" onclick="downloadBat()">下载批处理</button>
-            <button class="btn" onclick="copyBat()">复制脚本</button>
-        </div>
+    <h2>本地MP3批量管理工具（歌手筛选 + mklink脚本生成）</h2>
+    <div class="group">
+        <label><b>选择本地文件夹：</b></label>
+        <input type="file" id="dirInput" webkitdirectory directory multiple>
+        <span class="small">仅显示.mp3文件，文件名需为“歌手-歌曲名.mp3”格式</span>
     </div>
-
-    <input id="dirFile" webkitdirectory directory multiple type="file" style="display: none;" />
-
+    <div class="group">
+        <label><b>按歌手筛选：</b></label>
+        <select id="singerSelect" onchange="filterBySinger()">
+            <option value="">全部</option>
+        </select>
+    </div>
+    <div class="group">
+        <button onclick="checkAll(true)">全选</button>
+        <button onclick="checkAll(false)">全不选</button>
+        <button onclick="copyList()">复制选中文件名</button>
+        <span id="count" class="small"></span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th width="40"><input type="checkbox" id="chkAll" onclick="checkAll(this.checked)"></th>
+                <th width="120">歌手</th>
+                <th width="200">歌曲名</th>
+                <th>文件名</th>
+            </tr>
+        </thead>
+        <tbody id="fileList"></tbody>
+    </table>
+    <div class="group" style="margin-top:30px;">
+        <b>mklink 批处理脚本生成：</b>
+        <input type="text" id="targetDir" style="width:340px;" placeholder="目标目录，如 D:\Music_Link" value="">
+        <button onclick="genMklink()">生成 mklink 脚本</button>
+        <button onclick="copyMklink()">复制 mklink 脚本</button>
+        <br>
+        <textarea id="mklinkOut" readonly placeholder="这里会显示生成的mklink批处理命令"></textarea>
+        <span class="small"><br>
+        使用说明：目标目录请填写真实存在的磁盘路径。生成命令后，在管理员CMD中执行批处理即可批量创建软链接。</span>
+    </div>
     <script>
-        let allFiles = [], checked = [], mp3Count = 0, sortOrder = [1, 1, 1, 1];
+        let allFiles = [];
+        let singerFilter = "";
 
-        async function openDirPicker() {
-            if (window.showDirectoryPicker) {
-                try {
-                    const dirHandle = await window.showDirectoryPicker();
-                    document.getElementById('sourcePath').value = dirHandle.name;
-                    allFiles = []; checked = [];
-                    await readDir(dirHandle, '');
-                    renderTable();
-                    return;
-                } catch (e) {
-                    alert('目录选择取消或权限不足');
-                }
-            }
-            document.getElementById('dirFile').click();
+        // 提取歌手名
+        function getSinger(filename) {
+            let name = filename.replace(/\.mp3$/i, "");
+            let parts = name.split(/ ?- ?/);
+            return parts[0].trim();
+        }
+        // 提取歌曲名
+        function getSong(filename) {
+            let name = filename.replace(/\.mp3$/i, "");
+            let parts = name.split(/ ?- ?/);
+            return (parts[1] || "").trim();
         }
 
-        document.getElementById('dirFile').addEventListener('change', async (e) => {
-            allFiles = []; checked = [];
-            const files = Array.from(e.target.files).filter(f => /\.mp3$/i.test(f.name));
-            for (const f of files) {
-                allFiles.push({
-                    name: f.name,
-                    rel: f.webkitRelativePath.replace(/^[^/\\]+[\\/]/, ''),
-                    size: f.size,
-                    handle: f
-                });
-            }
-            document.getElementById('sourcePath').value = '[浏览器虚拟目录]';
+        // 文件夹选择
+        document.getElementById('dirInput').addEventListener('change', function(e) {
+            let files = Array.from(e.target.files).filter(f => /\.mp3$/i.test(f.name));
+            allFiles = files;
+            updateSingerList();
             renderTable();
         });
 
-        async function readDir(dirHandle, relPath) {
-            for await (const entry of dirHandle.values()) {
-                if (entry.kind === 'file' && /\.mp3$/i.test(entry.name)) {
-                    const file = await entry.getFile();
-                    allFiles.push({
-                        name: entry.name,
-                        rel: relPath ? (relPath + '/' + entry.name) : entry.name,
-                        size: file.size,
-                        handle: entry
-                    });
-                } else if (entry.kind === 'directory') {
-                    await readDir(entry, relPath ? (relPath + '/' + entry.name) : entry.name);
-                }
-            }
+        // 更新歌手列表
+        function updateSingerList() {
+            let singers = allFiles.map(f => getSinger(f.name));
+            let unique = Array.from(new Set(singers)).filter(s => s).sort((a,b) => a.localeCompare(b, "zh"));
+            let sel = document.getElementById('singerSelect');
+            sel.innerHTML = '<option value="">全部</option>' + unique.map(s => `<option value="${s}">${s}</option>`).join('');
         }
 
+        // 歌手筛选
+        function filterBySinger() {
+            singerFilter = document.getElementById('singerSelect').value;
+            renderTable();
+        }
+
+        // 渲染表格
         function renderTable() {
             const tbody = document.getElementById('fileList');
             tbody.innerHTML = '';
-            mp3Count = allFiles.length;
-            if (mp3Count === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="small" style="text-align: center;">未找到MP3文件</td></tr>`;
-            } else {
-                allFiles.forEach((f, i) => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><input type="checkbox" onchange="toggle(${i})" ${checked.includes(i) ? 'checked' : ''}></td>
-                        <td title="${f.name}">${f.name}</td>
-                        <td title="${f.rel}">${f.rel}</td>
-                        <td>${(f.size / 1048576).toFixed(2)}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-            document.getElementById('summary').innerHTML = `共 <span class="count">${mp3Count}</span> 个MP3文件，已选 <span class="count">${checked.length}</span> 个`;
-            updateBat();
-        }
+            let files = allFiles.map((f, i) => ({
+                file: f,
+                idx: i,
+                singer: getSinger(f.name),
+                song: getSong(f.name),
+                name: f.name,
+                rel: f.webkitRelativePath
+            }));
+            if (singerFilter) files = files.filter(f => f.singer === singerFilter);
 
-        function toggle(i) {
-            checked = checked.includes(i) ? checked.filter(idx => idx !== i) : [...checked, i];
-            renderTable();
-        }
-        function selectAll() { checked = allFiles.map((_, i) => i); renderTable(); }
-        function selectNone() { checked = []; renderTable(); }
-        function invertSelection() { checked = allFiles.map((_, i) => i).filter(i => !checked.includes(i)); renderTable(); }
-
-        function updateBat() {
-            const target = document.getElementById('targetPath').value.trim();
-            const absSrcRoot = document.getElementById('absSourcePath').value.trim().replace(/[\\\/]$/,'');
-            let lines = [];
-            checked.forEach(idx => {
-                const f = allFiles[idx];
-                const dst = `${target}\\${f.name}`;
-                const srcPath = absSrcRoot + '\\' + f.rel.replace(/\//g, '\\');
-                lines.push(`mklink "${dst}" "${srcPath}"`);
+            files.forEach((f, i) => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="checkbox" data-idx="${f.idx}" class="chk"></td>
+                    <td>${f.singer || '-'}</td>
+                    <td>${f.song || '-'}</td>
+                    <td title="${f.name}">${f.name}</td>
+                `;
+                tbody.appendChild(tr);
             });
-            document.getElementById('batOutput').value = lines.join('\r\n');
+            document.getElementById('count').innerText = `共 ${files.length} 首`;
+            document.getElementById('chkAll').checked = false;
         }
 
-        function downloadBat() {
-            const content = document.getElementById('batOutput').value;
-            const blob = new Blob([content], { type: 'application/octet-stream' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'mklink_mp3.bat';
-            a.click();
+        // 全选/全不选
+        function checkAll(val) {
+            let chks = document.querySelectorAll('.chk');
+            chks.forEach(chk => chk.checked = val);
         }
 
-        function copyBat() {
-            const ta = document.getElementById('batOutput');
-            ta.select();
-            document.execCommand('copy');
-            alert('脚本已复制到剪贴板');
-        }
-
-        function filterTable() {
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const rows = document.querySelectorAll('#fileList tr');
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(search) ? '' : 'none';
+        // 复制选中文件名
+        function copyList() {
+            let chks = document.querySelectorAll('.chk:checked');
+            if (chks.length === 0) { alert("请先勾选要复制的文件！"); return; }
+            let names = Array.from(chks).map(chk => {
+                let idx = chk.getAttribute('data-idx');
+                return allFiles[idx].name;
+            });
+            let text = names.join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                alert("已复制 " + names.length + " 个文件名！");
+            }, () => {
+                prompt("复制失败，请手动复制：", text);
             });
         }
 
-        function sortTable(col) {
-            sortOrder[col] = -sortOrder[col];
-            allFiles.sort((a, b) => {
-                let valA, valB;
-                if (col === 1) { valA = a.name; valB = b.name; }
-                else if (col === 2) { valA = a.rel; valB = b.rel; }
-                else if (col === 3) { valA = a.size; valB = b.size; }
-                return (valA > valB ? 1 : -1) * sortOrder[col];
+        // 生成mklink脚本
+        function genMklink() {
+            let targetDir = document.getElementById('targetDir').value.trim();
+            if (!targetDir) { alert("请先填写目标目录路径！"); return; }
+            // 校验结尾无斜杠
+            targetDir = targetDir.replace(/[\\\/]$/, "");
+            let chks = document.querySelectorAll('.chk:checked');
+            if (chks.length === 0) { alert("请先勾选要生成链接的文件！"); return; }
+            let out = [];
+            out.push("@echo off");
+            Array.from(chks).forEach(chk => {
+                let idx = chk.getAttribute('data-idx');
+                let file = allFiles[idx];
+                // 相对路径
+                let rel = file.webkitRelativePath || file.name;
+                // 源文件路径
+                let src = "%~dp0" + rel.replace(/\//g, "\\");
+                // 目标路径
+                let dst = targetDir + "\\" + file.name;
+                // 生成命令
+                out.push(`mklink "${dst}" "${src}"`);
             });
-            renderTable();
-            document.querySelectorAll('th').forEach((th, i) => th.textContent = th.textContent.replace(/[↑↓]/g, '') + (i === col ? (sortOrder[col] === 1 ? ' ↑' : ' ↓') : ' ↑'));
+            document.getElementById('mklinkOut').value = out.join('\r\n');
+        }
+
+        // 复制mklink脚本
+        function copyMklink() {
+            let text = document.getElementById('mklinkOut').value;
+            if (!text) { alert("请先生成mklink命令！"); return; }
+            navigator.clipboard.writeText(text).then(() => {
+                alert("已复制 mklink 脚本，可粘贴到批处理(.bat)文件里使用！");
+            }, () => {
+                prompt("复制失败，请手动复制：", text);
+            });
         }
     </script>
 </body>
