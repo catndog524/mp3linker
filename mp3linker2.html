@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3文件管理工具 - 歌手筛选 + mklink生成器</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 25px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+            padding: 15px;
+            border-radius: 6px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+        }
+        
+        .section h2 {
+            color: #3498db;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        
+        label {
+            font-weight: 600;
+            margin-right: 5px;
+        }
+        
+        input[type="file"], input[type="text"], select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        input[type="file"] {
+            flex: 1;
+        }
+        
+        input[type="text"] {
+            width: 300px;
+        }
+        
+        button {
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .info {
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background-color: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background-color: #f1f3f4;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .checkbox-col {
+            width: 40px;
+        }
+        
+        .singer-col {
+            width: 150px;
+        }
+        
+        .song-col {
+            width: 250px;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            resize: vertical;
+            background-color: #f8f9fa;
+        }
+        
+        .stats {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .highlight {
+            background-color: #e8f4fc;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MP3文件管理工具</h1>
+        
+        <div class="section">
+            <h2>文件选择</h2>
+            <div class="control-group">
+                <label for="dirInput">选择本地文件夹：</label>
+                <input type="file" id="dirInput" webkitdirectory directory multiple>
+                <span class="info">支持递归扫描子文件夹中的MP3文件</span>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>歌手筛选</h2>
+            <div class="control-group">
+                <label for="singerSelect">按歌手筛选：</label>
+                <select id="singerSelect">
+                    <option value="">全部歌手</option>
+                </select>
+                <span id="fileCount" class="stats"></span>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>文件操作</h2>
+            <div class="control-group">
+                <button onclick="checkAll(true)">全选</button>
+                <button onclick="checkAll(false)">全不选</button>
+                <button onclick="copySelected()">复制选中文件名</button>
+                <button onclick="copyMklinkScript()">复制mklink脚本</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>文件列表</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="checkbox-col"><input type="checkbox" id="selectAll" onclick="checkAll(this.checked)"></th>
+                        <th class="singer-col">歌手</th>
+                        <th class="song-col">歌曲名</th>
+                        <th>文件名</th>
+                    </tr>
+                </thead>
+                <tbody id="fileList">
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #999; padding: 30px;">请选择包含MP3文件的文件夹</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>mklink脚本生成</h2>
+            <div class="control-group">
+                <label for="targetDir">目标目录：</label>
+                <input type="text" id="targetDir" placeholder="例如: D:\Music_Link">
+                <button onclick="generateMklinkScript()">生成脚本</button>
+                <span class="info">目标目录必须已存在</span>
+            </div>
+            <textarea id="mklinkOutput" placeholder="生成的mklink脚本将显示在这里..."></textarea>
+            <div id="successMessage" class="success-message">脚本已复制到剪贴板！</div>
+            <div id="errorMessage" class="error-message">错误：请先选择文件并填写目标目录</div>
+        </div>
+    </div>
+
+    <script>
+        let allFiles = [];
+        let selectedSinger = '';
+        
+        // 文件夹选择处理
+        document.getElementById('dirInput').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files).filter(file => /\.mp3$/i.test(file.name));
+            allFiles = files.map(file => {
+                const singer = extractSinger(file.name);
+                const song = extractSong(file.name);
+                return {
+                    file,
+                    singer,
+                    song,
+                    name: file.name,
+                    path: file.webkitRelativePath
+                };
+            });
+            
+            updateSingerList();
+            renderFileList();
+        });
+        
+        // 提取歌手名
+        function extractSinger(filename) {
+            const name = filename.replace(/\.mp3$/i, "");
+            const parts = name.split(/ ?- ?/);
+            return parts[0].trim();
+        }
+        
+        // 提取歌曲名
+        function extractSong(filename) {
+            const name = filename.replace(/\.mp3$/i, "");
+            const parts = name.split(/ ?- ?/);
+            return parts.slice(1).join(' - ').trim();
+        }
+        
+        // 更新歌手列表
+        function updateSingerList() {
+            const singers = [...new Set(allFiles.map(f => f.singer))].sort((a, b) => a.localeCompare(b, 'zh'));
+            const select = document.getElementById('singerSelect');
+            select.innerHTML = '<option value="">全部歌手</option>';
+            singers.forEach(singer => {
+                const option = document.createElement('option');
+                option.value = singer;
+                option.textContent = singer;
+                select.appendChild(option);
+            });
+            
+            // 添加歌手筛选事件
+            select.addEventListener('change', function() {
+                selectedSinger = this.value;
+                renderFileList();
+            });
+        }
+        
+        // 渲染文件列表
+        function renderFileList() {
+            const tbody = document.getElementById('fileList');
+            tbody.innerHTML = '';
+            
+            let files = allFiles;
+            if (selectedSinger) {
+                files = files.filter(f => f.singer === selectedSinger);
+            }
+            
+            document.getElementById('fileCount').textContent = `共找到 ${files.length} 个MP3文件`;
+            
+            if (files.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999; padding: 30px;">没有找到匹配的MP3文件</td></tr>';
+                return;
+            }
+            
+            files.forEach((file, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="checkbox" class="file-checkbox" data-index="${allFiles.indexOf(file)}"></td>
+                    <td>${file.singer}</td>
+                    <td>${file.song}</td>
+                    <td title="${file.path}">${file.name}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // 全选/全不选
+        function checkAll(status) {
+            const checkboxes = document.querySelectorAll('.file-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = status;
+            });
+            document.getElementById('selectAll').checked = status;
+        }
+        
+        // 复制选中的文件名
+        function copySelected() {
+            const checkboxes = document.querySelectorAll('.file-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showMessage('请先选择要复制的文件', 'error');
+                return;
+            }
+            
+            const fileNames = Array.from(checkboxes).map(checkbox => {
+                const index = parseInt(checkbox.getAttribute('data-index'));
+                return allFiles[index].name;
+            });
+            
+            copyToClipboard(fileNames.join('\n'));
+            showMessage(`已复制 ${fileNames.length} 个文件名到剪贴板`, 'success');
+        }
+        
+        // 生成mklink脚本
+        function generateMklinkScript() {
+            const targetDir = document.getElementById('targetDir').value.trim();
+            if (!targetDir) {
+                showMessage('请输入目标目录', 'error');
+                return;
+            }
+            
+            const checkboxes = document.querySelectorAll('.file-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showMessage('请先选择要创建链接的文件', 'error');
+                return;
+            }
+            
+            let script = '@echo off\n';
+            script += 'echo 正在创建MP3文件软链接...\n\n';
+            
+            Array.from(checkboxes).forEach(checkbox => {
+                const index = parseInt(checkbox.getAttribute('data-index'));
+                const file = allFiles[index];
+                
+                // 源文件路径（相对于当前目录）
+                const sourcePath = file.path.replace(/\//g, '\\');
+                
+                // 目标路径
+                const targetPath = `${targetDir}\\${file.name}`;
+                
+                script += `mklink "${targetPath}" "%~dp0${sourcePath}"\n`;
+            });
+            
+            script += '\necho 软链接创建完成！';
+            document.getElementById('mklinkOutput').value = script;
+            showMessage('mklink脚本已生成，可以复制使用', 'success');
+        }
+        
+        // 复制mklink脚本
+        function copyMklinkScript() {
+            const script = document.getElementById('mklinkOutput').value;
+            if (!script) {
+                showMessage('请先生成mklink脚本', 'error');
+                return;
+            }
+            
+            copyToClipboard(script);
+            showMessage('mklink脚本已复制到剪贴板', 'success');
+        }
+        
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).catch(err => {
+                console.error('复制失败:', err);
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            });
+        }
+        
+        // 显示消息
+        function showMessage(message, type) {
+            const successEl = document.getElementById('successMessage');
+            const errorEl = document.getElementById('errorMessage');
+            
+            // 隐藏所有消息
+            successEl.style.display = 'none';
+            errorEl.style.display = 'none';
+            
+            // 显示指定类型的消息
+            if (type === 'success') {
+                successEl.textContent = message;
+                successEl.style.display = 'block';
+                setTimeout(() => successEl.style.display = 'none', 3000);
+            } else {
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+                setTimeout(() => errorEl.style.display = 'none', 3000);
+            }
+        }
+    </script>
+</body>
+</html>
